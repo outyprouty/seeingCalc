@@ -6,7 +6,7 @@ from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button,TextBox
 from numpy import log, exp, pi
 from scipy import optimize as opt
-import copy
+import logging
 
 from sys import argv
 
@@ -61,8 +61,6 @@ class ImgHolder:
         plt.show()
 
     def onclose(self, event):
-#        fig, ax = plt.subplots(figsize=(16,10))
-#        ax.imshow(self.data, cmap='gray', origin='lower')
             
         #grab all patches
         for i,p in enumerate(self.imgAx.patches):
@@ -70,7 +68,6 @@ class ImgHolder:
             x = int(p.get_x() + dx)
             y = int(p.get_y() + dy)
             
-#            ax.add_patch(Rectangle((x-2*dx,y-2*dy), dx*2, dy*2, edgecolor='r', fill=False))
 
             subFrame = self.data[y-dy:y+dy,x-dx:x+dx]
             
@@ -84,7 +81,6 @@ class ImgHolder:
             
             fwhmPix = (abs(coeffh[2])+abs(coeffv[2]))*0.5 * 2.355
             fwhmArcSec = fwhmPix * self.ASperPix * rad2arcsec
- #           ax.text(x+dx+5, y+dy+5, "{:0.3f} \'\'".format(fwhmArcSec), color='r')
 
             fig1, ax1= plt.subplots()
             ax1.step(range(x-dx,x+dx), hData, color='b', label='hor; {:0.2f}p'.format(coeffh[2]))
@@ -97,9 +93,14 @@ class ImgHolder:
             ax1.set_ylabel("Profile")
             ax1.grid(1)
             plt.savefig("{}/subFrameGaussFit_{:03d}.png".format(self.directory, i))
-
- #       plt.figure(fig)
- #       plt.savefig("{}/main-figure.png".format(self.directory))
+        
+#        fig, ax = plt.subplots(figsize=(16,10))
+#        ax.imshow(log(self.data+1), cmap='gray', origin='lower')
+#        ax.set_title(self.instrument)
+#        for i,p in enumerate(self.imgAx.patches):
+#            ax.add_patch(Rectangle((x-2*dx,y-2*dy), dx*2, dy*2, edgecolor='r', fill=False))
+#            ax.text(x+dx+5, y+dy+5, "{:0.3f} \'\'".format(fwhmArcSec), color='r')
+#        plt.savefig("{}/main-figure.png".format(self.directory))
         plt.close('all')
             
 
