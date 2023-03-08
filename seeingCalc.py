@@ -82,16 +82,18 @@ class ImgHolder:
             fwhmPix = (abs(coeffh[2])+abs(coeffv[2]))*0.5 * 2.355
             fwhmArcSec = fwhmPix * self.ASperPix * rad2arcsec
 
-            fig1, ax1= plt.subplots()
-            ax1.step(range(x-dx,x+dx), hData, color='b', label='hor; {:0.2f}p'.format(coeffh[2]))
-            ax1.step(range(y-dy,y+dy), vData, color='r', label='ver; {:0.2f}p'.format(coeffv[2]))
-            ax1.plot(range(x-dx,x+dx), gauss(range(dx*2),*coeffh), 'b.')
-            ax1.plot(range(y-dy,y+dy), gauss(range(dy*2),*coeffv), 'r.')
-            ax1.legend(loc=0)
-            ax1.set_title("SubFrame Gaussian Fit")
-            ax1.set_xlabel("Pixel Location")
-            ax1.set_ylabel("Profile")
-            ax1.grid(1)
+            fig1, axArr= plt.subplots(figsize=(8,6),nrows=1, ncols=2, sharey=True)
+            axArr[0].step(range(x-dx,x+dx), hData, color='b', alpha=0.5)
+            axArr[1].step(range(y-dy,y+dy), vData, color='r', alpha=0.5)
+            axArr[0].plot(range(x-dx,x+dx), gauss(range(dx*2),*coeffh), 'b.')
+            axArr[1].plot(range(y-dy,y+dy), gauss(range(dy*2),*coeffv), 'r.')
+            axArr[0].set_title("Source: Horizontal Data & Gaussian Fit")
+            axArr[1].set_title("Source: Vertical Data & Gaussian Fit")
+            axArr[0].set_xlabel("Pixel Location (Horizontal) [p]")
+            axArr[1].set_xlabel("Pixel Location (Vertical) [p]")
+            axArr[0].set_ylabel("Profile")
+            axArr[0].grid(1)
+            axArr[1].grid(1)
             plt.savefig("{}/subFrameGaussFit_{:03d}.png".format(self.directory, i))
         
         fig, ax = plt.subplots(figsize=(16,10))
