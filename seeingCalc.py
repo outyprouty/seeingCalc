@@ -26,6 +26,7 @@ class ImgHolder:
         self.directory = directory
         self.file = glob("{}/*.fit*".format(self.directory))[0]
         self.data = fits.open(self.file)[0].data[0]
+        self.fwhm = []
 
         self.f = 6500 #mm for DFM Scope
         self.pixScale = float(fits.open(self.file)[0].header['XPIXSZ'])
@@ -61,14 +62,13 @@ class ImgHolder:
         plt.show()
 
     def onclose(self, event):
-            
+        
         #grab all patches
         for i,p in enumerate(self.imgAx.patches):
             #extract subframe
             x = int(p.get_x() + dx)
             y = int(p.get_y() + dy)
             
-
             subFrame = self.data[y-dy:y+dy,x-dx:x+dx]
             
             #get vert data
@@ -94,13 +94,14 @@ class ImgHolder:
             ax1.grid(1)
             plt.savefig("{}/subFrameGaussFit_{:03d}.png".format(self.directory, i))
         
-#        fig, ax = plt.subplots(figsize=(16,10))
-#        ax.imshow(log(self.data+1), cmap='gray', origin='lower')
-#        ax.set_title(self.instrument)
-#        for i,p in enumerate(self.imgAx.patches):
-#            ax.add_patch(Rectangle((x-2*dx,y-2*dy), dx*2, dy*2, edgecolor='r', fill=False))
-#            ax.text(x+dx+5, y+dy+5, "{:0.3f} \'\'".format(fwhmArcSec), color='r')
-#        plt.savefig("{}/main-figure.png".format(self.directory))
+        fig, ax = plt.subplots(figsize=(16,10))
+        ax.imshow(log(self.data+1), cmap='gray', origin='lower')
+        ax.set_title("Camera: {}; Pixel Scale: {:0.2f}[um/p] Scope focalLen: {}[mm]".format(\
+            self.instrument,self.pixScale, self.f))
+        for i,p in enumerate(self.imgAx.patches):
+            ax.add_patch(Rectangle((p.get_x(), p.get_y()), p.get_width(), p.get_height(), edgecolor='r', fill=False))
+            ax.text(p.get_x()+2*dx+5, p.get_y()+2*dy+5, "{:0.3f} \'\'".format(self.fwhm[i]), color='r')
+        plt.savefig("{}/main-figure.png".format(self.directory))
         plt.close('all')
             
 
@@ -126,7 +127,7 @@ class ImgHolder:
         if verb: print("{:d}, {:d}".format(x, y))
         ax = event.inaxes
         ax.add_patch(Rectangle((x-dx,y-dy), dx*2, dy*2, edgecolor='r', fill=False))
-
+        self.fwhm.append(-999)
         plt.gcf().canvas.draw_idle()
 
     def recenter(self, event):
@@ -149,7 +150,7 @@ class ImgHolder:
             plt.gcf().canvas.draw_idle()
 
     def findfwhm(self, event):
-        for p in self.imgAx.patches:
+        for i, p in enumerate(self.imgAx.patches):
             #extract subframe
             x = int(p.get_x() + dx)
             y = int(p.get_y() + dy)
@@ -166,6 +167,8 @@ class ImgHolder:
             
             fwhmPix = (abs(coeffh[2])+abs(coeffv[2]))*0.5 * 2.355
             fwhmArcSec = fwhmPix * self.ASperPix
+
+            self.fwhm[i] = fwhmArcSec
             
             self.imgAx.text(x+dx+5, y+dy+5, "{:0.3f} \'\'".format(fwhmArcSec), color='r')
             
