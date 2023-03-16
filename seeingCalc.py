@@ -4,19 +4,18 @@ from astropy.io import fits
 from photutils import centroids
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button,TextBox
-from numpy import log, exp, pi
-import numpy
+import numpy as np
 from scipy import optimize as opt
 import logging
+import os
 
 from sys import argv
 
-numpy.seterr(divide = 'ignore')
-rad2arcsec = 3600*180/pi
+np.seterr(divide = 'ignore')
+rad2arcsec = 3600*180/np.pi
 
-
-def gauss(x, amp, mu, sig):
-       return amp*exp(-(x-mu)**2/(2.*sig**2))
+def gauss(x, amp, mu, sig, bkg):
+       return amp*np.exp(-(x-mu)**2/(2.*sig**2)) + bkg
 
 class ImgHolder:
 
@@ -27,8 +26,8 @@ class ImgHolder:
         self.fig.number = "main"
         self.directory = directory
         
-        logger.info('Set working directory as {}'.format(directory))
-        self.file = glob("{}/*.fit*".format(self.directory))[0]
+        self.log.info('Set working directory as {}'.format(directory))
+        self.file = glob(os.path.abspath("{}/*.fit*".format(self.directory)))[0]
         self.header = fits.open(self.file)[0].header
         self.naxis = int(self.header['NAXIS'])
         if self.naxis == 2:
@@ -48,7 +47,7 @@ class ImgHolder:
 
         self.ASperPix = self.pixScale/(self.f*1000.0) * rad2arcsec #Using small angle approx and conv to arcsec
         
-        img = self.imgAx.imshow(log(self.data+1), cmap='gray', origin='lower')
+        img = self.imgAx.imshow(np.log(self.data+1), cmap='gray', origin='lower')
         self.imgAx.set_title(self.instrument)
         cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
         cid = self.fig.canvas.mpl_connect('close_event', self.onclose)
@@ -58,7 +57,7 @@ class ImgHolder:
         focLTB.on_submit(self.updateFL)
 
         axPSclTB = self.fig.add_axes([0.1,0.095,0.1,0.025])
-        pSclTB   = TextBox(axPSclTB, "Pixel Scale [um]", initial=self.pixScale)
+        pSclTB   = TextBox(axPSclTB, "Pixel Scale [um/p]", initial=self.pixScale)
         pSclTB.on_submit(self.updatePixScale)
 
         axSFTB = self.fig.add_axes([0.3,0.05,0.1,0.025])
@@ -91,11 +90,11 @@ class ImgHolder:
             
             #get vert data
             vData = subFrame[:,self.dx]
-            coeffv, var  = opt.curve_fit(gauss,range(self.dx*2),vData, p0=[5,self.dx,1])
+            coeffv, var  = opt.curve_fit(gauss,range(self.dx*2),vData, p0=[5,self.dx,1,1])
 
             #get hori data
             hData = subFrame[self.dx,:]
-            coeffh, var  = opt.curve_fit(gauss,range(self.dx*2),hData, p0=[5,self.dx,1])
+            coeffh, var  = opt.curve_fit(gauss,range(self.dx*2),hData, p0=[5,self.dx,1,1])
             
             fwhmPix = (abs(coeffh[2])+abs(coeffv[2]))*0.5 * 2.355
             fwhmArcSec = fwhmPix * self.ASperPix * rad2arcsec
@@ -115,13 +114,13 @@ class ImgHolder:
             plt.savefig("{}/subFrameGaussFit_{:03d}.png".format(self.directory, i))
         
         fig, ax = plt.subplots(figsize=(16,10))
-        ax.imshow(log(self.data+1), cmap='gray', origin='lower')
+        ax.imshow(np.log(self.data+1), cmap='gray', origin='lower')
         ax.set_title("Camera: {}; Pixel Scale: {:0.2f}[um/p] Scope focalLen: {}[mm]".format(\
             self.instrument,self.pixScale, self.f))
         for i,p in enumerate(self.imgAx.patches):
             ax.add_patch(Rectangle((p.get_x(), p.get_y()), p.get_width(), p.get_height(), edgecolor='r', fill=False))
             ax.text(p.get_x()+2*self.dx+5, p.get_y()+2*self.dx+5, "{:0.3f} \'\'".format(self.fwhm[i]), color='r')
-        plt.savefig("{}/main-figure.png".format(self.directory))
+        plt.savefig(os.path.abspath("{}/main-figure.png".format(self.directory)))
         plt.close('all')
 
     def updateSF(self, text):
@@ -140,7 +139,7 @@ class ImgHolder:
 
     def clear(self, event):
         self.imgAx.clear()
-        self.imgAx.imshow(log(self.data+1), cmap='gray', origin='lower')
+        self.imgAx.imshow(np.log(self.data+1), cmap='gray', origin='lower')
         self.imgAx.set_title(self.instrument)
 
         plt.gcf().canvas.draw_idle()
@@ -179,11 +178,11 @@ class ImgHolder:
             
             #get vert data
             vData = subFrame[:,self.dx]
-            coeffv, var  = opt.curve_fit(gauss,range(self.dx*2),vData, p0=[5,self.dx,1])
+            coeffv, var  = opt.curve_fit(gauss,range(self.dx*2),vData, p0=[5,self.dx,1,1])
 
             #get hori data
             hData = subFrame[self.dx,:]
-            coeffh, var  = opt.curve_fit(gauss,range(self.dx*2),hData, p0=[5,self.dx,1])
+            coeffh, var  = opt.curve_fit(gauss,range(self.dx*2),hData, p0=[5,self.dx,1, 1])
             
             fwhmPix = (abs(coeffh[2])+abs(coeffv[2]))*0.5 * 2.355
             fwhmArcSec = fwhmPix * self.ASperPix
@@ -197,14 +196,17 @@ class ImgHolder:
  
 from logging.config import fileConfig
 
-logging.basicConfig(filename='seeingCalc.log', level=logging.INFO, filemode='w', format='%(name)s - %(levelname)s - %(message)s')
+directory = argv[1]
+
+logging.basicConfig(filename=os.path.abspath('{}/seeingCalc.log'.format(directory)), level=logging.INFO, filemode='w', format='%(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger()
 logger.info('Logger instance created')
 #DEBUG INFO WARNING ERROR CRITICAL
 
-directory = argv[1]
-logger.info('Received working directory CLI input as {}'.format(directory))
+logger.info('Received working directory CLI input as {}. Placing log there.'.format(directory))
 
-iH = ImgHolder(directory, log)
+
+
+iH = ImgHolder(directory, logger)
 logger.info('Attempting to start seeingCalc session; ImgHolder Obj')
 
